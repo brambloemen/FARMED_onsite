@@ -4,6 +4,9 @@ from datetime import timedelta
 from collections import defaultdict
 import numpy as np
 import pandas as pd
+import plotly.express as px
+from Template_parsing import extract_species_name, extract_arg_name
+
 
 logging.basicConfig(level = logging.DEBUG,format='%(asctime)s %(message)s',
                     datefmt='%x %X')
@@ -14,6 +17,7 @@ def parse_arguments():
     parser.add_argument("-t", metavar="taxa.bam", dest="bam_taxa", type=str, help="Filepath of bam with alignment to taxa database")
 #   parser.add_argument("-r", dest="taxa_res", type=str, help="Filepath of res file of KMA alignmnent to taxa database")
     parser.add_argument("-a", metavar="AMR.bam", dest="AMR_bam", type=str, help="Filepath of bam with alignments to resistance database")
+    parser.add_argument("-o", metavar="output", dest="output", type=str, help="Name/filepath of output plots", default=None)
     parser.add_argument("--threads", type=int, help="Number of threads used to process SAM/BAM file", default=1)
     parser.add_argument("--tc_taxa", type=float, help="Minimum template coverage for a taxa template to be accepted", default=0.0)
     parser.add_argument("--tid_taxa", type=float, help="Minimum template identity for a taxa template to be accepted", default=0.0)
@@ -26,7 +30,30 @@ def parse_arguments():
 
     return parser
 
-def parse_taxa(taxa_bam, threads, tc_taxa, qid_taxa, tid_taxa, tlen_taxa, tdep_taxa):
+
+def extract_read_time(readname):
+    fmt = '%Y-%m-%dT%H:%M:%SZ'
+    seq_time = re.search("start_time=\d+-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", readname).group()
+    seq_time = re.sub("start_time=", "", seq_time)
+    seq_time = datetime.strptime(seq_time, fmt)
+    return seq_time
+    
+def extract_exp_runtime(alignmentfile, threads):
+    reads = pysam.AlignmentFile(alignmentfile, "rb", threads=threads)
+    start_time, end_time = None, None
+    for read in reads:
+        seq_time = extract_read_time(read.query_name)
+        if not start_time:
+            start_time = seq_time
+            end_time = seq_time
+        elif seq_time < start_time:
+            start_time = seq_time
+        elif seq_time > end_time:
+            end_time = seq_time
+    return (start_time, end_time)
+
+
+def parse_taxa(taxa_bam, threads, tc_taxa, qid_taxa, tid_taxa, tlen_taxa, tdep_taxa, start_time):
     
     """
     Loop over alignment to taxa, filter out unwanted templates, determine start time and duration
@@ -42,25 +69,28 @@ def parse_taxa(taxa_bam, threads, tc_taxa, qid_taxa, tid_taxa, tlen_taxa, tdep_t
     Filtered_taxa = Filtered_taxa[Filtered_taxa["Depth"] >= tdep_taxa]
     Filtered_taxa = Filtered_taxa["#Template"].tolist()
 
-
-    fmt = '%Y-%m-%dT%H:%M:%SZ'
-    start_time, end_time = None, None
-
     logging.info(f"Parsing alignment to taxa: {taxa_bam}")
     align_taxa = pysam.AlignmentFile(taxa_bam, "rb", threads=threads)
     align_taxa_refseq = {ref["SN"]:ref["LN"] for ref in align_taxa.header.to_dict()["SQ"]}
     align_taxa_n_lines = 0
 
     # align_taxa dictionary: {read:[Template1, readlength, matching bases, Template1 total reference length]}
-
     align_taxa_reads = defaultdict(lambda: [str, 0, 0, 0])
     for read in align_taxa:
         align_taxa_n_lines += 1
-        # skip alignment if taxa template did not pass filter
-        if read.reference_name not in Filtered_taxa:
-            continue
+        
+        # skip if readlength too short
         if read.query_length <= args.rlen:
             continue
+        # extract timing of read, calculate start and end time of sequencing experiment
+        seq_time = extract_read_time(read.query_name)
+        seq_time = seq_time - start_time
+        seq_time = math.ceil(seq_time.total_seconds()/3600)
+
+        # skip other steps if taxa template did not pass filter
+        if read.reference_name not in Filtered_taxa:
+            continue
+        
         # store read identifiers
         n = read.query_name
         Template1 = read.reference_name
@@ -70,31 +100,13 @@ def parse_taxa(taxa_bam, threads, tc_taxa, qid_taxa, tid_taxa, tlen_taxa, tdep_t
         if 100*cigarEQ/l < args.tid_taxa or 100*cigarEQ/l < args.qid_taxa:
             continue
 
-        seq_time = re.search("start_time=\d+-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", read.query_name).group()
-        seq_time = re.sub("start_time=", "", seq_time)
-        seq_time = datetime.strptime(seq_time, fmt)
-
-        if not start_time:
-            start_time = seq_time
-            end_time = seq_time
-        elif seq_time < start_time:
-            start_time = seq_time
-        elif seq_time > end_time:
-            end_time = seq_time
-
-        seq_time = seq_time - start_time
-        seq_time = math.ceil(seq_time.total_seconds()/3600)
-
-        duration = end_time - start_time
-        duration = math.ceil(duration.total_seconds()/3600)
-
         align_taxa_reads[n] = [seq_time, Template1, l, cigarEQ, Template1_l]
 
     logging.info(f"Done parsing alignment 1. Processed {align_taxa_n_lines} alignments")
-    return (align_taxa_reads, start_time, duration)
+    return align_taxa_reads
     
 
-def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg):
+def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg, start_time):
     """
     Loop over alignment to resistance database
     """
@@ -116,14 +128,16 @@ def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg):
 
     for read in align_amr:
         align_amr_n_lines += 1
+        
+        if read.query_length <= args.rlen:
+            continue
         # read identifiers
         n = read.query_name
         # alignment stats
         # not aligned to AMR --> skip
         if read.reference_name == None: 
             continue
-        if read.query_length <= args.rlen:
-            continue
+        
         # skip reads matching to template not passing AMR filter
         if read.reference_name not in Filtered_AMR:
             continue
@@ -132,7 +146,8 @@ def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg):
         l = read.query_length
         cigarEQ = read.get_cigar_stats()[0][7] # EQ: exact sequence match (base in query matches base in template)
         Template2_l = align_amr_refseq.get(Template2, None)
-        if 100*(cigarEQ + read.get_cigar_stats()[0][8])/read.reference_length < args.tid_arg:
+        if 100*(cigarEQ)/read.reference_length < args.tid_arg:
+            # + read.get_cigar_stats()[0][8]
             continue
 
         if n in processed_taxa_reads:
@@ -144,6 +159,11 @@ def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg):
             alignment_links[seq_time][Template1][Template2][4] = Template1_l
             alignment_links[seq_time][Template1][Template2][5] = Template2_l
         else:
+            # read not in parsed reads => seq time not calculated
+            seq_time = extract_read_time(n)
+            seq_time = seq_time - start_time
+            seq_time = math.ceil(seq_time.total_seconds()/3600)
+
             alignment_links[seq_time]["Unmapped"][Template2][0] += 1
             alignment_links[seq_time]["Unmapped"][Template2][1] += l # will be total length of all reads aligned to template 2, with no match for temp
             alignment_links[seq_time]["Unmapped"][Template2][2] = None
@@ -155,24 +175,83 @@ def parse_AMR(amr_bam, processed_taxa_reads, threads, tid_arg, tdep_arg):
 
     return  alignment_links
 
+def create_output(output, alignment_links):
+
+    header = ["Time_hours", "Species", "ARG", "n_reads", "Total_readlength", "n_match_bases1", "n_match_bases2", "Template1_length", "Template2_length"]
+    # writer = csv.writer(sys.stdout, delimiter="\t")
+    # writer.writerow(header)
+
+    ARG_links = []
+
+    for t, spec_stats in alignment_links.items():
+        for spec, arg_stats in spec_stats.items():
+            for arg, stats in arg_stats.items():
+                # writer.writerow([t, spec, arg] + stats)
+                ARG_links.append([t, spec, arg] + stats)
+
+    """
+    Generate plots
+    """
+
+    ARG_links = pd.DataFrame(ARG_links, columns=header)
+    ARG_links["Species"] = ARG_links["Species"].apply(extract_species_name)
+    ARG_links["ARG"] = ARG_links["ARG"].apply(extract_arg_name)
+    
+    grouped = ARG_links.groupby(['Time_hours', 'Species', 'ARG'])
+
+    # Calculate other summary statistics
+    n_reads = grouped['n_reads'].sum()
+    Total_readlength = grouped['Total_readlength'].sum()
+    n_match_bases1 = grouped['n_match_bases1'].sum()
+    n_match_bases2 = grouped['n_match_bases2'].sum()
+    Template1_length = grouped['Template1_length'].mean()
+    Template2_length = grouped['Template2_length'].mean()
+    Organism_QID = n_match_bases1/Total_readlength
+    ARG_TID = n_match_bases2/(Template2_length * n_reads)
+
+    ARG_links = pd.DataFrame({'n_reads': n_reads,
+                        'Total_readlength': Total_readlength,
+                        'n_match_bases1': n_match_bases1,
+                        'n_match_bases2': n_match_bases2,
+                        'Template1_length': Template1_length,
+                        'Template2_length': Template2_length,
+                        'Organism_QID': Organism_QID,
+                        'ARG_TID': ARG_TID})
+
+    ARG_links = ARG_links.reset_index()
+    ARG_links.to_csv(sys.stdout, sep="\t", index=False)
+
+    ARG_links["Species-ARG link"] =  ARG_links["Species"] + "-" + ARG_links["ARG"]
+    ARG_links = ARG_links.groupby(["Time_hours", "Species-ARG link"])['n_reads'].sum()
+    # ARG_links = ARG_links.sort_values(by='Time_hours')
+    ARG_links = ARG_links.reset_index()
+    ARG_links['n_reads'] = ARG_links.groupby(['Species-ARG link'])['n_reads'].cumsum()
+    ARG_links = ARG_links.reset_index()
+
+    # Create the plot
+    fig = px.line(ARG_links, x='Time_hours', y='n_reads', color="Species-ARG link")
+
+    # Save the figure to a PNG file
+    if output != None:
+        fig.write_html(f"{output}_ARGbytime.html")
+        fig.write_image(f"{output}_ARGbytime.png")
+    else:
+        fig.write_html(f"ARGlink_by_time.html")
+        fig.write_image(f"ARGlink_by_time.png")
 
 if __name__ == '__main__':
     logging.info(f"Process arguments, load and preprocess reads")
     args = parse_arguments().parse_args()
 
-    processed_taxa_reads, start_time, duration = parse_taxa(args.bam_taxa, args.threads, args.tc_taxa, args.qid_taxa, args.tid_taxa, args.tlen_taxa, args.tdep_taxa)
-    logging.info(f"Start: {start_time}, duration (hours): {duration}")
-    
-    alignment_links = parse_AMR(args.AMR_bam, processed_taxa_reads, args.threads, args.tid_arg, args.tdep_arg)
-    
-    header = ["Time_hours", "Species", "ARG", "n_reads", "Total_readlength", "n_match_bases", "n_match_bases_ARG", "length_species_template", "length_ARG"]
-    writer = csv.writer(sys.stdout, delimiter="\t")
-    writer.writerow(header)
+    start_time, end_time = extract_exp_runtime(args.bam_taxa, args.threads)
+    duration = end_time - start_time
+    duration = math.ceil(duration.total_seconds()/3600)
+    logging.info(f"Experiment start: {start_time}, duration (hours): {duration}")
 
-    for t, arg_stats in alignment_links.items():
-        for arg, spec_stats in arg_stats.items():
-            for spec, stats in spec_stats.items():
-                writer.writerow([t, spec, arg] + stats)
+    processed_taxa_reads = parse_taxa(args.bam_taxa, args.threads, args.tc_taxa, args.qid_taxa, args.tid_taxa, args.tlen_taxa, args.tdep_taxa, start_time)
+        
+    alignment_links = parse_AMR(args.AMR_bam, processed_taxa_reads, args.threads, args.tid_arg, args.tdep_arg, start_time)
 
+    create_output(args.output, alignment_links)
     logging.info(f"Done")
 
