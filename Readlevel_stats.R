@@ -29,35 +29,35 @@ for (k in 1:length(readstats)){
 readstats <- rbindlist(readstats)
 
 # Parse reference community data
-ref_com$taxa <- ref_com$Organism
-ref_com <- ref_com %>% select(taxa, Perc_gDNA) %>% 
+ref_com$Species <- ref_com$Organism
+ref_com <- ref_com %>% select(Species, Perc_gDNA) %>% 
   distinct() %>%
   arrange(desc(Perc_gDNA))
-ref_taxa <- ordered(ref_com$taxa)
+ref_Species <- ordered(ref_com$Species)
 
 # Function to clean organism names (to species level)
-clean_org_name <- function(organism){
-  organism <- str_remove_all(organism, "Synthetic|\\[|\\]|\\scf.")
-  organism <- str_replace_all(organism, "_", " ")
-  organism <- str_replace_all(organism, "E.coli.*", "Escherichia coli")
-  organism <- str_replace_all(organism, "veillonella", "Veillonella")
-  organism <- str_replace_all(organism, "\\.", " ")
-  organism <- str_extract(organism, "[:upper:]{1}[:lower:]+\\s[:alpha:]+\\.?")
-  organism <- str_replace(organism, "Clostridium difficil+e", "Clostridioides difficile")
-  return(organism)
-}
+# clean_org_name <- function(organism){
+#   organism <- str_remove_all(organism, "Synthetic|\\[|\\]|\\scf.")S 
+#   organism <- str_replace_all(organism, "_", " ")
+#   organism <- str_replace_all(organism, "E.coli.*", "Escherichia coli")
+#   organism <- str_replace_all(organism, "veillonella", "Veillonella")
+#   organism <- str_replace_all(organism, "\\.", " ")
+#   organism <- str_extract(organism, "[:upper:]{1}[:lower:]+\\s[:alpha:]+\\.?")
+#   organism <- str_replace(organism, "Clostridium difficil+e", "Clostridioides difficile")
+#   return(organism)
+# }
 
 # preprocess data
 readstats <- readstats %>%
-  mutate(taxa = clean_org_name(Template)) %>%
-  filter(taxa %in% ref_com$taxa) %>%
-  mutate(taxa = ordered(taxa, levels=ref_taxa)) %>%
-  group_by(taxa, Experiment)
+  mutate(Species = Template) %>%
+  filter(Species %in% ref_com$Species) %>%
+  mutate(Species = ordered(Species, levels=ref_Species)) %>%
+  group_by(Species, Experiment)
 
 # barplot mean readlengths
 plot <- readstats %>%
   summarize(mean_readlength = mean(Length)) %>%
-  ggplot(aes(x=taxa, y=mean_readlength, fill=Experiment)) +
+  ggplot(aes(x=Species, y=mean_readlength, fill=Experiment)) +
   geom_col(position = "dodge", color="black") +
   coord_cartesian(ylim=c(0,15000)) +
   theme_classic() +
@@ -71,7 +71,7 @@ ggsave(exportpath, width = 16, height = 9, dpi = 100)
 
 # boxplot
 boxplot <- readstats %>%
-  ggplot(aes(x=taxa, y=Length, fill=Experiment)) +
+  ggplot(aes(x=Species, y=Length, fill=Experiment)) +
   geom_boxplot(position = "dodge", outlier.shape = NA) +
   # coord_cartesian(ylim=c(0,20000)) +
   scale_y_log10() +

@@ -222,10 +222,13 @@ lnu(A)	MLS-B resistance
 lnu(B)	MLS-B resistance		
 lnu(C)	MLS-B resistance		
 lnu(D)	MLS-B resistance		
+lnu(E)	MLS-B resistance		
 lnu(F)	MLS-B resistance		
+lnu(G)	MLS-B resistance		
 lnu(P)	MLS-B resistance		
 lsa(B)	MLS-B resistance		
 lsa(C)	MLS-B resistance		
+lsa(E)	MLS-B resistance		
 mef(A)	MLS-B resistance		
 mef(B)	MLS-B resistance		
 mph(A)	MLS-B resistance		
@@ -425,6 +428,9 @@ tet(L)	Tetracycline resistance
 tet(M)	Tetracycline resistance		
 tet(O)	Tetracycline resistance		
 tet(O/W)-1	Tetracycline resistance		
+tet(O/W)	Tetracycline resistance		
+tet(O/32/O)	Tetracycline resistance		
+tet(O/W/32/O)	Tetracycline resistance		
 tet(Q)	Tetracycline resistance		
 tet(S)	Tetracycline resistance		
 tet(S/M)	Tetracycline resistance		

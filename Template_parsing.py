@@ -56,5 +56,5 @@ def extract_species_name(string):
 
 def extract_arg_name(string):
     ARG = re.sub(r"_.+", "", string)
-    ARG = re.sub(r"-\\d+.+$", "", ARG)
+    ARG = re.sub(r"-\d+.+$", "", ARG)
     return ARG
