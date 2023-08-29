@@ -83,7 +83,8 @@ chordplot_AMRlinks <- function(df, Exp, readsThreshold=1, bpThreshold=50000){
       cumsum_reads(Species, ARG) %>%
       mutate(ARGlink = paste(Species, ARG, sep = " - ")) %>%
       arrange(Time_hours) %>% group_by(Species, ARG) %>% slice_tail(n = 1) %>% 
-      filter(Species == "Unmapped" | n_match_bases1>bpThreshold, n_reads > readsThreshold)
+      filter(Species == "Unmapped" | n_match_bases1>bpThreshold, n_reads > readsThreshold) %>% 
+      mutate(Species = ifelse(Species %in% reference_comm$Organism, paste0(Species, "*"), Species))
   
   # reformat to matrix for chordDiagram
   m_ARGlink <- df_ARGlink %>% select(Species, ARG, n_reads) %>% pivot_wider(names_from="ARG", values_from="n_reads") %>% as.matrix()
@@ -95,7 +96,8 @@ chordplot_AMRlinks <- function(df, Exp, readsThreshold=1, bpThreshold=50000){
   # chordDiagram only takes table or df as input, not matrix
   m_ARGlink2 <- as.table(m_ARGlink2)
 
-  refspecs <- rownames(m_ARGlink2)[rownames(m_ARGlink2) %in% reference_comm$Organism]
+  RC_spec_star <- paste0(reference_comm$Organism, "*")
+  refspecs <- rownames(m_ARGlink2)[rownames(m_ARGlink2) %in% RC_spec_star]
   border_mat <- m_ARGlink2
   border_mat[] <- NA
   border_mat[refspecs,1:ncol(m_ARGlink2)] <- "black"

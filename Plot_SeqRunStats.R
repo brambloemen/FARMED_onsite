@@ -112,6 +112,7 @@ seq_yield_plot <- seq_yield %>% ggplot(aes(x = Experiment, y = Totalbp)) +
 
 fig1 <- ggarrange(readlengths,
                  seq_yield_plot,
+                 labels = c("a", "b"),
                  nrow = 2, align = "v", common.legend = TRUE)
 fig1
 
@@ -130,19 +131,20 @@ heatmap <- KMAdata %>%
         axis.title.y = element_blank(),
         axis.text.y = element_text(hjust=1, size=14),
         axis.text.x = element_text(size=14),
-        legend.position="right", 
+        legend.position="top", 
         legend.text = element_text(size = 14),
         legend.title = element_text(size = 14),
+        legend.spacing.x = unit(1, "cm"),
         plot.margin = margin(b=0.5, r=1, l=0.5, unit = 'cm'))
 
-fig2 <- ggarrange(fig1, heatmap, ncol = 2)
+fig2 <- ggarrange(fig1, heatmap, ncol = 2, labels = c("", "c"))
 fig2
 
 
-pdf(NULL)
-exportpath <- paste0(getwd(), "/SeqRunStats.png")  # !!! always same filename; will overwrite previous ones
-print(fig2)
-ggsave(exportpath, width = 16, height = 9, dpi = 300)
+# pdf(NULL)
+# exportpath <- paste0(getwd(), "/SeqRunStats.png")  # !!! always same filename; will overwrite previous ones
+# print(fig2)
+# ggsave(exportpath, width = 16, height = 9, dpi = 300)
 
 
 
@@ -151,15 +153,15 @@ ggsave(exportpath, width = 16, height = 9, dpi = 300)
 KMAdata2 <- fread("../Plots/Summarized_data/Fecal_abfhpv2.kma.tsv", sep = "\t", integer64 = "numeric")
 KMAdata2 <- KMAdata2 %>%
   mutate(Experiment = case_when(
-           Experiment == "Fecal_background_QD_LSK_abfhpv" ~ "FbEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_bc2_abfhpv" ~ "FBQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK_abfhpv" ~ "FBQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD_abfhpv" ~ "FBDR",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK_abfhpv" ~ "FEQL",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD_abfhpv" ~ "FEQR"
+           Experiment == "Fecal_background_QD_LSK_abfhpv" ~ "UEQL",
+           Experiment == "Fecal_GMSspikeI_CB_beads_bc2_abfhpv" ~ "BQR",
+           Experiment == "Fecal_GMSspikeI_CB_beads_VSK_abfhpv" ~ "BQV",
+           Experiment == "Fecal_GMSspikeI_CB_RAD_abfhpv" ~ "BDR",
+           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK_abfhpv" ~ "EQL",
+           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD_abfhpv" ~ "EQR"
          ))
 KMAdata2 <- merge(KMAdata2, ref_community, by.x="Species", by.y = "Organism", all = TRUE)
-KMAdata2$Experiment <- ordered(KMAdata2$Experiment, levels=c("FbEQL", "FEQL", "FEQR", "FBDR", "FBQR", "FBQV"))
+KMAdata2$Experiment <- ordered(KMAdata2$Experiment, levels=c("UEQL", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
 # filtering and sorting to plot KMA classification results on heatmap
 KMAdata2_ref <- KMAdata2 %>%
@@ -167,7 +169,7 @@ KMAdata2_ref <- KMAdata2 %>%
   arrange(desc(Perc_gDNA)) %>%
   mutate(p_bpTotal = p_bpTotal/sum(p_bpTotal),
             Perc_gDNA = Perc_gDNA) %>%
-  mutate(norm_abundance=log2(100*p_bpTotal/Perc_gDNA))
+  mutate(norm_abundance=log(100*p_bpTotal/Perc_gDNA))
 KMAdata2_ref$Species_ab <- paste0(KMAdata2_ref$Species, " - ", signif(KMAdata2_ref$Perc_gDNA, digits = 2), "%")
 KMAdata2_ref$Species_ab <- ordered(KMAdata2_ref$Species_ab, levels=unique(KMAdata2_ref$Species_ab))
 
@@ -176,7 +178,7 @@ KMAdata2_ref$Species_ab <- ordered(KMAdata2_ref$Species_ab, levels=unique(KMAdat
 heatmap_abfpv <- KMAdata2_ref %>%
   ggplot(aes(x=Experiment, y=Species_ab)) +
   geom_tile(aes(fill=norm_abundance)) +
-  scale_fill_gradient2(name="Log2 observed/expected",
+  scale_fill_gradient2(name="Log10 observed/expected",
                        low="blue", mid="#e6e6e6", high="red", midpoint = 0) +
   # reverse organism order on heatmap y axis (i.e. top=high abundance, bottom=low)
   scale_y_discrete(limits=rev, name=NULL) + 
@@ -192,17 +194,21 @@ KMAdata2_all <- KMAdata2 %>%
   filter(!str_detect(Species, "[P|p]lasmid") & !str_detect(Species, "[P|p]hage") & !str_detect(Species, "[V|v]irus")) %>%
   filter(mean_queryID > 80, mean_template_coverage > 5, is.na(Perc_gDNA))
 
-midpoint <- median(log2(KMAdata2_all$p_bpTotal), na.rm=TRUE)
+midpoint <- median(log(KMAdata2_all$p_bpTotal), na.rm=TRUE)
 
 
 KMAdata2_all <- KMAdata2 %>%
   filter(!str_detect(Species, "[P|p]lasmid") & !str_detect(Species, "[P|p]hage") & !str_detect(Species, "[V|v]irus")) %>%
-  filter(is.na(Perc_gDNA), mean_queryID > 80)
+  filter(is.na(Perc_gDNA), mean_queryID > 80, mean_template_coverage>5)
+
+UEQL_species <- KMAdata2_all %>% filter(Experiment=="UEQL", mean_queryID > 80, mean_template_coverage>5) %>% select(Species)
+
 
 heatmap_abfpv_all <- KMAdata2_all %>%
+  filter(Species %in% UEQL_species$Species) %>%
   ggplot(aes(x=Experiment, y=Species)) +
-  geom_tile(aes(fill=log2(p_bpTotal))) +
-  scale_fill_gradient2(name="Log2 of relative abundance (mapped bp)",
+  geom_tile(aes(fill=log(p_bpTotal))) +
+  scale_fill_gradient2(name="Log10 of proportion of mapped bases",
                        low="blue", mid="#e6e6e6", high="red", midpoint = midpoint) +
   # reverse organism order on heatmap y axis (i.e. top=high abundance, bottom=low)
   scale_y_discrete(limits=rev, name=NULL) + 
@@ -211,4 +217,4 @@ heatmap_abfpv_all <- KMAdata2_all %>%
   theme(axis.title.x = element_blank(),
         axis.title.y = element_blank()) +
   theme(legend.position="top")
-
+heatmap_abfpv_all
