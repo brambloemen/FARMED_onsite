@@ -93,7 +93,7 @@ readlengths <- readstats %>% ggplot(aes(x = Experiment, y = lengths)) +
   geom_violin(position = position_dodge(0.7), alpha=0.75, fill = "#00BFC4") +
   geom_boxplot(outlier.shape = NA, position = position_dodge(0.7), width=0.2, alpha=0.75, color = "black") +
   geom_text(data = N50s, aes(x = Experiment, y = 10^5, label = N50)) +
-  ylab("Read length") +
+  ylab("Read length (bp)") +
   xlab(NULL) +
   theme_classic() +
   theme(axis.text.x = element_blank(), axis.text.y = element_text(size=14), axis.title.y = element_text(size=14),
@@ -122,7 +122,7 @@ heatmap <- KMAdata %>%
   ggplot(aes(x=Experiment, y=Species_ab)) +
   geom_tile(aes(fill=norm_abundance)) +
   scale_fill_gradient2(name="Log ratio \nobserved/expected",
-                       low="blue", mid="#e6e6e6", high="red", midpoint = 0) +
+                       low="blue", mid="#dbdbdb", high="red", midpoint = 0) +
   # reverse organism order on heatmap y axis (i.e. top=high abundance, bottom=low)
   scale_y_discrete(limits=rev, name=NULL, position = "right") + 
   scale_x_discrete(position = "bottom", name=NULL) +
@@ -179,7 +179,7 @@ heatmap_abfpv <- KMAdata2_ref %>%
   ggplot(aes(x=Experiment, y=Species_ab)) +
   geom_tile(aes(fill=norm_abundance)) +
   scale_fill_gradient2(name="Log10 observed/expected",
-                       low="blue", mid="#e6e6e6", high="red", midpoint = 0) +
+                       low="blue", mid="#dbdbdb", high="red", midpoint = 0) +
   # reverse organism order on heatmap y axis (i.e. top=high abundance, bottom=low)
   scale_y_discrete(limits=rev, name=NULL) + 
   scale_x_discrete(position = "bottom", name=NULL) +
@@ -209,7 +209,7 @@ heatmap_abfpv_all <- KMAdata2_all %>%
   ggplot(aes(x=Experiment, y=Species)) +
   geom_tile(aes(fill=log(p_bpTotal))) +
   scale_fill_gradient2(name="Log10 of proportion of mapped bases",
-                       low="blue", mid="#e6e6e6", high="red", midpoint = midpoint) +
+                       low="blue", mid="#dbdbdb", high="red", midpoint = midpoint) +
   # reverse organism order on heatmap y axis (i.e. top=high abundance, bottom=low)
   scale_y_discrete(limits=rev, name=NULL) + 
   scale_x_discrete(position = "bottom", name=NULL) +

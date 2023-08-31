@@ -59,7 +59,7 @@ abfhpv <- cat_tsv("../Plots/Summarized_data/CovByTime/", "_abfhpvByTime.tsv") %>
            Experiment == "Fecal_GMSspikeI_CB_RAD" ~ "BDR",
            Experiment == "Fecal_GMSspikeI_QuickDNA_LSK" ~ "EQL",
            Experiment == "Fecal_GMSspikeI_QuickDNA_RAD" ~ "EQR",
-           .default = "RC"
+           .default = "DMC"
          ))
 
 abfhpv_SpeciesByTime <- abfhpv %>% filter(Organism_QID >= 0.80) %>% rarefaction_byExpTime(Species)
@@ -88,9 +88,9 @@ GMSdb <- cat_tsv("../Plots/Summarized_data/AMRlinking/", "_GMSvResF.tsv") %>%
            Experiment == "Fecal_GMSspikeI_CB_RAD" ~ "BDR",
            Experiment == "Fecal_GMSspikeI_QuickDNA_LSK" ~ "EQL",
            Experiment == "Fecal_GMSspikeI_QuickDNA_RAD" ~ "EQR",
-           .default = "RC"
+           .default = "DMC"
          ))
-GMSdb$Experiment <- ordered(GMSdb$Experiment, levels=c("UEQL", "RC", "EQL", "EQR", "BDR", "BQR", "BQV"))
+GMSdb$Experiment <- ordered(GMSdb$Experiment, levels=c("UEQL", "DMC", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
 # Unique ARGs by time per experiment
 GMSdb_unique_ARGs <- GMSdb %>% rarefaction_byExpTime(ARG)
@@ -109,8 +109,8 @@ combined <- merge(GMSdb_unique_ARGs, abfhpv_SpeciesByTime, by=c("Time", "Experim
   rename(n_uniq_ARGS = n_unique.x, n_uniq_Spec = n_unique.y)
 combined <- merge(combined, ARG_byExpTime, by=c("Time", "Experiment"), all=TRUE)
 combined <- combined %>%
-    filter(Experiment != "RC") %>%
-    droplevels("RC") %>%
+    filter(Experiment != "DMC") %>%
+    droplevels("DMC") %>%
     complete(Experiment, Time) %>%
     fill(n_uniq_ARGS, n_uniq_Spec, n_reads, .direction = "down") %>%
     pivot_longer(names_to = "Variable", values_to = "Value", cols = c("n_uniq_ARGS", "n_uniq_Spec", "n_reads"))
@@ -127,7 +127,8 @@ p_time <- combined %>% ggplot(aes(x = Time, y = Value, col = Experiment)) +
   ylim(0, NA) +
   theme_classic() +
   theme(legend.position = "bottom",
-        strip.text = element_text(size=16), 
+        strip.text = element_blank(),
+        strip.background = element_blank(),
         axis.text = element_text(size=14),
         axis.title.x = element_text(size = 16),
         legend.title = element_blank(),
@@ -140,9 +141,9 @@ p_list <- lapply(unique(combined$Variable), function(var) {
   p_subset
 })
 # Access individual subplots as separate ggplot objects
-p_unARG <- p_list[[1]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank())
-p_unSpec <- p_list[[2]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank())
-p_ARGcount <- p_list[[3]]
+p_unARG <- p_list[[1]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab("Unique species")
+p_unSpec <- p_list[[2]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab('Unique ARGs')
+p_ARGcount <- p_list[[3]] + theme(axis.title.y = element_text(size = 16)) + ylab("ARG read count")
 
 p_time2 <- ggarrange(p_unSpec,
                  p_unARG,
@@ -153,19 +154,19 @@ p_time2
 
 # Heatmap with number of resistance genes per experiment
 # ARG counts by resistance class and experiment
-RC <- merge(reference_data, reference_comm, by.x="Species", by.y="Organism", all.x=TRUE) %>%
-  mutate(Experiment = "RC", n_reads = Perc_gDNA)
-ARG_exp <- rbindlist(list(GMSdb, RC), fill=TRUE)  
+DMC <- merge(reference_data, reference_comm, by.x="Species", by.y="Organism", all.x=TRUE) %>%
+  mutate(Experiment = "DMC", n_reads = Perc_gDNA)
+ARG_exp <- rbindlist(list(GMSdb, DMC), fill=TRUE)  
 ARG_exp <- merge(ARG_exp, resistance_classes, by.x="ARG", by.y="Gene", all.x=TRUE) 
 
 ARG_exp_byARG <- ARG_exp %>%
   group_by(Experiment, ARG, Resistance) %>%
   summarize(n_reads = sum(n_reads))
 
-ARG_exp_byARG <- ARG_exp_byARG %>% filter(Experiment != "RC")
+ARG_exp_byARG <- ARG_exp_byARG %>% filter(Experiment != "DMC")
 midpoint <-  log10(median(ARG_exp_byARG$n_reads))
 ARG_exp_byARG$Resistance <- factor(ARG_exp_byARG$Resistance)
-order_ARGs <- ARG_exp_byARG %>% filter(Experiment != "RC") %>% group_by(ARG) %>% 
+order_ARGs <- ARG_exp_byARG %>% filter(Experiment != "DMC") %>% group_by(ARG) %>% 
     mutate(med_reads = median(n_reads)) %>% 
     arrange(desc(Resistance), med_reads) %>% select(ARG) %>% unique()
 order_ARGs <- order_ARGs$ARG
@@ -177,7 +178,7 @@ heatmap <- ARG_exp_byARG %>%
   geom_tile() +
   geom_text(aes(label = n_reads), size = 3) +
    scale_fill_gradient2(name="Log10 of ARG counts",
-                       low="blue", mid="#e6e6e6", high="red", midpoint = midpoint) +
+                       low="blue", mid="#dbdbdb", high="red", midpoint = midpoint) +
    scale_y_discrete(guide = guide_axis(position = "right")) +
   theme_classic() +
   theme(axis.text.x = element_text(size=14),
@@ -214,7 +215,7 @@ ARG_exp_byclass <- ARG_exp %>%
   group_by(Experiment, Resistance) %>%
   summarize(n_reads = sum(n_reads))
 
-ARG_exp_byclass %>% filter(Experiment != "RC") %>% 
+ARG_exp_byclass %>% filter(Experiment != "DMC") %>% 
   ggplot(aes(x = Experiment, y = n_reads, fill= Resistance)) +
   geom_col() +
   theme(axis.text.x = element_text(angle = 90))

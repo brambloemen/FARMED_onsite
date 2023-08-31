@@ -78,12 +78,15 @@ GMSdb <- cat_tsv("../Plots/Summarized_data/AMRlinking/", "_GMSvResF.tsv") %>%
 chordplot_AMRlinks <- function(df, Exp, readsThreshold=1, bpThreshold=50000){
  # reformat dataframe: keep only the cumulative counts at final time;
   # filter with threshold on how much of the ARG reads need to be aligned to the taxon template
+  # !TODO: fix so that ARG-host under treshold are cateogrized as unclassified hosts
   df_ARGlink <- df %>%
       filter(Experiment == Exp) %>%
       cumsum_reads(Species, ARG) %>%
       mutate(ARGlink = paste(Species, ARG, sep = " - ")) %>%
       arrange(Time_hours) %>% group_by(Species, ARG) %>% slice_tail(n = 1) %>% 
-      filter(Species == "Unmapped" | n_match_bases1>bpThreshold, n_reads > readsThreshold) %>% 
+      # filter(Species == "Unmapped" | n_match_bases1>bpThreshold, n_reads > readsThreshold) %>%
+      mutate(Species = ifelse(n_match_bases1>bpThreshold & n_reads > readsThreshold, Species, "Unmapped")) %>%
+      group_by(Species, ARG) %>% reframe(n_reads = sum(n_reads)) %>%
       mutate(Species = ifelse(Species %in% reference_comm$Organism, paste0(Species, "*"), Species))
   
   # reformat to matrix for chordDiagram
