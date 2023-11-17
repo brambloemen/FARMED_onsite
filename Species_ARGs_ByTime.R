@@ -49,47 +49,31 @@ lineplot <- function(df, yvar){
 
 # Import data and generate plots --------------------------------------------------------------------
 
-abfhpv <- cat_tsv("../Plots/Summarized_data/CovByTime/", "_abfhpvByTime.tsv") %>%
+abfhpv <- cat_tsv("results/CovByTime/", "_abfhpvByTime.tsv") %>%
   mutate(Organism_QID = n_match_bases/Total_readlength) %>%
   filter(!str_detect(Species, "([P|p]lasmid)|([V|v]irus)|([P|p]hage)")) %>%
-  mutate(Experiment = case_when(
-           Experiment == "Fecal_background" ~ "UEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_bc2" ~ "BQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK" ~ "BQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD" ~ "BDR",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK" ~ "EQL",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD" ~ "EQR",
-           .default = "DMC"
-         ))
+  mutate(Experiment = str_remove(Experiment, "_abfhpv"))
 
 abfhpv_SpeciesByTime <- abfhpv %>% filter(Organism_QID >= 0.80) %>% rarefaction_byExpTime(Species)
 abfhpv_SpeciesByTime <- abfhpv %>% filter(Organism_QID >= 0.80, Coverage >= 5) %>% rarefaction_byExpTime(Species)
 
 # reference community data
-reference_data <- read.csv("/scratch/brbloemen/FARMED/WP3_T3_onsite_test/FARMED_onsite/GMSspikeI_AMRprofile.csv", sep = ";") %>%
+reference_data <- read.csv("GMSspikeI_AMRprofile.csv", sep = ";") %>%
     mutate(Reference_AMR_link=TRUE,
            Species = Organism) %>%
     select(-Organism)
 reference_ARGs <- data.frame(reference_data$ARG) %>% mutate(Reference_AMR=TRUE)
 
-reference_comm <- read.csv("/scratch/brbloemen/FARMED/WP3_T3_onsite_test/FARMED_onsite/zymo_GMS.csv", sep = ";", dec=",")
+reference_comm <- read.csv("zymo_GMS.csv", sep = ";", dec=",")
 # resistance classes
-resistance_classes <- read.csv("/scratch/brbloemen/FARMED/WP3_T3_onsite_test/FARMED_onsite/resistance_classes.tsv", sep="\t") %>%
+resistance_classes <- read.csv("resistance_classes.tsv", sep="\t") %>%
   mutate(Resistance = str_remove(Resistance, "\\sresistance")) %>% select(Gene, Resistance)
 
 
 # AMR linking summaries
-GMSdb <- cat_tsv("../Plots/Summarized_data/AMRlinking/", "_GMSvResF.tsv") %>%
+GMSdb <- cat_tsv("results/AMRlinking/", "_GMSvResF.tsv") %>%
   mutate(Time = Time_hours) %>%
-  mutate(Experiment = case_when(
-           Experiment == "Fecal_background" ~ "UEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_bc2" ~ "BQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK" ~ "BQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD" ~ "BDR",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK" ~ "EQL",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD" ~ "EQR",
-           .default = "DMC"
-         ))
+  mutate(Experiment = str_remove(Experiment, "_GMSvResF"))
 GMSdb$Experiment <- ordered(GMSdb$Experiment, levels=c("UEQL", "DMC", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
 # Unique ARGs by time per experiment
@@ -113,7 +97,7 @@ combined <- combined %>%
     droplevels("DMC") %>%
     complete(Experiment, Time) %>%
     fill(n_uniq_ARGS, n_uniq_Spec, n_reads, .direction = "down") %>%
-    pivot_longer(names_to = "Variable", values_to = "Value", cols = c("n_uniq_ARGS", "n_uniq_Spec", "n_reads"))
+    pivot_longer(names_to = "Variable", values_to = "Value", cols = c("n_uniq_Spec", "n_uniq_ARGS", "n_reads"))
 
 hex <- hue_pal()(6)
 
@@ -141,8 +125,8 @@ p_list <- lapply(unique(combined$Variable), function(var) {
   p_subset
 })
 # Access individual subplots as separate ggplot objects
-p_unARG <- p_list[[1]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab("Unique species")
-p_unSpec <- p_list[[2]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab('Unique ARGs')
+p_unSpec <- p_list[[1]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab("Unique species")
+p_unARG <- p_list[[2]] + theme(axis.text.x = element_blank(), axis.title.x = element_blank(), axis.title.y = element_text(size = 16)) + ylab('Unique ARGs')
 p_ARGcount <- p_list[[3]] + theme(axis.title.y = element_text(size = 16)) + ylab("ARG read count")
 
 p_time2 <- ggarrange(p_unSpec,
@@ -207,6 +191,11 @@ heatmap_ARG
 fig <- ggarrange(p_time2, heatmap_ARG, ncol = 2, align = "v", widths = c(0.7, 1), labels = c("", "d"))
 fig
 
+pdf(NULL)
+exportpath <- paste0(getwd(), "/results/plots/Time_and_AMR.png")  
+print(fig)
+ggsave(exportpath, width = 16, height = 10, dpi = 300)
+
 # absolute numbers of ARGs detected throughout experiments
 
 # barchart with ARGs detected, separated by exp and colored by resistance class
@@ -221,6 +210,11 @@ ARG_exp_byclass %>% filter(Experiment != "DMC") %>%
   theme(axis.text.x = element_text(angle = 90))
 
 # relative numbers
-ARG_exp_byclass %>% ggplot(aes(x = Experiment, y = n_reads, fill= Resistance)) +
+p_ARG_exp_byclass <- ARG_exp_byclass %>% ggplot(aes(x = Experiment, y = n_reads, fill= Resistance)) +
   geom_col(position = "fill") +
   theme(axis.text.x = element_text(angle = 90))
+
+pdf(NULL)
+exportpath <- paste0(getwd(), "/results/plots/ARG_exp_byclass.png") 
+print(p_ARG_exp_byclass)
+ggsave(exportpath, width = 16, height = 10, dpi = 300)

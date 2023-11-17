@@ -1,0 +1,15 @@
+samples:
+  UEQL: "data/Fecal_background_QD_LSK109.fastq.gz"
+  EQL: "data/Fecal_GMS_spikeinI_QuickDNA_LSK109.fastq.gz"
+  EQR: "data/Fecal_GMS_spikeinI_QuickDNA_RAD004.fastq.gz"
+  BDR: "data/Fecal_GMSspikeI_CB_RAD004_2.fastq.gz"
+  BQR: "data/Fecal_GMSspikeI_CB_beads_bc2.fastq.gz"
+  BQV: "data/Fecal_GMSspikeI_CB_beads_VSK004.fastq.gz"
+
+databases:
+  # Large database from NCBI RefSeq
+  abfhpv: "/scratch/alvanuffelen/kma/kma_db"
+  # Spike-in DMC genomes as provided by supplier
+  GMSdb: "/scratch/brbloemen/FARMED/WP3_T3_onsite_test/GMS_refseq/GMS_spikeinI_index/GMS_spikeinI_db"
+  # ResFinder database
+  ResFinder: "/db/kma/ResFinder/ResFinder"

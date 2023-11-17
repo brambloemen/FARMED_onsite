@@ -58,7 +58,7 @@ done
 
 # Print usage documentation if no options are passed
 if [[ -z "$taxadb" ]] || [[ -z "$resistancedb" ]] || [[ -z "$input_file" ]] || [[ -z "$output_file" ]]; then
-  echo "Usage: myscript.sh -t taxa_dabase -r resistance_database -i input_file -o output_file"
+  echo "Usage: KMA.sh -t taxa_dabase -r resistance_database -i input_file -o output_file"
   exit 1
 fi
 

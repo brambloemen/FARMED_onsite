@@ -37,15 +37,8 @@ calculate_N50 <- function(lengths) {
 
 # data processing ---------------------------------------------------------
 
-readstats <- cat_tsv("../Plots/Summarized_data/readstats/", ".readstats.tsv")
-readstats <- mutate(readstats, Experiment = case_when(
-           Experiment == "Fecal_background_QD_LSK" ~ "UEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_RAD" ~ "BQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK" ~ "BQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD" ~ "BDR",
-           Experiment == "Fecal_GMSspikeI_QD_LSK" ~ "EQL",
-           Experiment == "Fecal_GMSspikeI_QD_RAD" ~ "EQR"
-         ))
+readstats <- cat_tsv("results/readstats/", ".tsv")
+
 readstats$Experiment <- ordered(readstats$Experiment, levels=c("UEQL", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
 # reference community data
@@ -58,16 +51,10 @@ ref_community$Organism <- factor(ref_community$Organism, levels = ref_community$
                                  ordered = TRUE)
 
 # Process combined KMA results summaries
-KMAdata <- fread("../Plots/Summarized_data/Fecal_GMSspikeI2.kma.tsv", sep = "\t", integer64 = "numeric")
+KMAdata <- fread("results/mapping/kma_GMS_summary.tsv", sep = "\t", integer64 = "numeric")
 KMAdata <- KMAdata %>%
-  mutate(Experiment = case_when(
-           Experiment == "Fecal_background_QD_LSK_GMSspikeIdb" ~ "UEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_bc2_GMSspikeIdb" ~ "BQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK_GMSspikeIdb" ~ "BQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD_GMSspikeIdb" ~ "BDR",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK_GMSspikeIdb" ~ "EQL",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD_GMSspikeIdb" ~ "EQR"
-         ))
+  mutate(Experiment = str_remove(Experiment, "_GMSdb"))
+
 KMAdata <- merge(KMAdata, ref_community, by.x="Species", by.y = "Organism", all = TRUE)
 KMAdata$Experiment <- ordered(KMAdata$Experiment, levels=c("UEQL", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
@@ -141,25 +128,19 @@ fig2 <- ggarrange(fig1, heatmap, ncol = 2, labels = c("", "c"))
 fig2
 
 
-# pdf(NULL)
-# exportpath <- paste0(getwd(), "/SeqRunStats.png")  # !!! always same filename; will overwrite previous ones
-# print(fig2)
-# ggsave(exportpath, width = 16, height = 9, dpi = 300)
+pdf(NULL)
+exportpath <- paste0(getwd(), "/results/plots/SeqRunStats.png")  # !!! always same filename; will overwrite previous ones
+print(fig2)
+ggsave(exportpath, width = 16, height = 9, dpi = 300)
 
 
 
 # KMA against abfhpv database
 # Process combined KMA results summaries
-KMAdata2 <- fread("../Plots/Summarized_data/Fecal_abfhpv2.kma.tsv", sep = "\t", integer64 = "numeric")
+KMAdata2 <- fread("results/mapping/kma_abfhpv_summary.tsv", sep = "\t", integer64 = "numeric")
 KMAdata2 <- KMAdata2 %>%
-  mutate(Experiment = case_when(
-           Experiment == "Fecal_background_QD_LSK_abfhpv" ~ "UEQL",
-           Experiment == "Fecal_GMSspikeI_CB_beads_bc2_abfhpv" ~ "BQR",
-           Experiment == "Fecal_GMSspikeI_CB_beads_VSK_abfhpv" ~ "BQV",
-           Experiment == "Fecal_GMSspikeI_CB_RAD_abfhpv" ~ "BDR",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_LSK_abfhpv" ~ "EQL",
-           Experiment == "Fecal_GMSspikeI_QuickDNA_RAD_abfhpv" ~ "EQR"
-         ))
+  mutate(Experiment = str_remove(Experiment, "_abfhpv"))
+
 KMAdata2 <- merge(KMAdata2, ref_community, by.x="Species", by.y = "Organism", all = TRUE)
 KMAdata2$Experiment <- ordered(KMAdata2$Experiment, levels=c("UEQL", "EQL", "EQR", "BDR", "BQR", "BQV"))
 
@@ -218,3 +199,9 @@ heatmap_abfpv_all <- KMAdata2_all %>%
         axis.title.y = element_blank()) +
   theme(legend.position="top")
 heatmap_abfpv_all
+
+
+pdf(NULL)
+exportpath <- paste0(getwd(), "/results/plots/heatmap_background_species.png")  # !!! always same filename; will overwrite previous ones
+print(heatmap_abfpv_all)
+ggsave(exportpath, width = 16, height = 9, dpi = 300)
