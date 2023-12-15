@@ -13,7 +13,7 @@ def parser():
     parser.add_argument("input", nargs='+', metavar="--input", help="Filepath(s) of KMA result file(s) (.res with corresponding .mapstat)")
     args = parser.parse_args()
     # dictionary to couple .res filepath to .mapstat filepath
-    filepaths = {fp : re.sub(".res", ".mapstat", fp) for fp in args.input}
+    filepaths = {fp : re.sub(".res$", ".mapstat", fp) for fp in args.input}
     return(filepaths)
     
     
@@ -21,8 +21,8 @@ def parser():
 def merge_kmares(resfile, mapstatfile):
 
     try:
-        experiment=re.search("\w+.res", resfile).group()
-        experiment_name = re.sub(".res", "", experiment)
+        experiment=re.search("[\w\.]+.res$", resfile).group()
+        experiment_name = re.sub(".res$", "", experiment)
         KMAres = pd.read_csv(resfile, sep='\t')
         KMAmapstat = pd.read_csv(mapstatfile, sep='\t', skiprows=6)
         KMA = pd.merge(KMAmapstat, KMAres, how='outer', left_on='# refSequence', right_on='#Template')
