@@ -34,9 +34,10 @@ def preprocess(bamfile, threads):
     template_lengths = {ref["SN"]:ref["LN"] for ref in bamfile.header.to_dict()["SQ"]}
     
     n_reads = 0
+    regex_starttime = re.compile(r"start_time=\d+-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
     for read in bamfile:
 
-        seq_time = re.search("start_time=\d+-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", read.query_name).group()
+        seq_time = re.search(regex_starttime, read.query_name).group()
         seq_time = re.sub("start_time=", "", seq_time)
         seq_time = datetime.strptime(seq_time, fmt)
 
