@@ -7,9 +7,9 @@ samples:
   BQV: "data/Fecal_GMSspikeI_CB_beads_VSK004.fastq.gz"
 
 databases:
-  # Large database from NCBI RefSeq
+  # Large database from NCBI RefSeq, described in methods section: https://www.nature.com/articles/s41598-023-46771-z#Sec12  
   abfhpv: "/scratch/alvanuffelen/kma/kma_db"
-  # Spike-in DMC genomes as provided by supplier
+  # Spike-in DMC genomes as provided by supplier: https://zymoresearch.eu/collections/zymobiomics-microbial-community-standards/products/zymobiomics-gut-microbiome-standard
   GMSdb: "/scratch/brbloemen/FARMED/WP3_T3_onsite_test/GMS_refseq/GMS_spikeinI_index/GMS_spikeinI_db"
-  # ResFinder database
+  # ResFinder database: https://doi.org/10.1099/mgen.0.000748
   ResFinder: "/db/kma/ResFinder/ResFinder"
